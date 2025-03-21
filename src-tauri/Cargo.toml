@@ -1,0 +1,64 @@
+[package]
+name = "WayStation"
+version = "0.2.3"
+description = "Marketplace for Claude by WayStation"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "waystation_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+tauri-plugin-shell = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-deep-link = "2"
+dirs = "5.0"
+lazy_static = "1.4.0"
+log = "0.4"
+simplelog = { version = "0.12", features = ["local-offset"] }
+time = { version = "0.3", features = ["formatting"] }
+reqwest = { version = "0.11", features = ["json", "blocking"] }
+once_cell = "1.19"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.0", features = ["full"] }
+url = "2.3"
+base64 = "0.21"
+sha2 = "0.10"
+rand = "0.8"
+tauri-plugin-devtools = "2.0.0"
+tauri-plugin-http = "2"
+tauri-plugin-store = "2"
+
+[profile.dev]
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"  # Helps with faster incremental builds on some platforms
+incremental = true
+
+[profile.test]
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.release]
+opt-level = 3
+debug = false
+strip = "symbols"
+lto = "thin"
+incremental = false
+codegen-units = 1  # Enables better optimization, slower compilation
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"

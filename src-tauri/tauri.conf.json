@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "WayStation",
+  "version": "0.2.5",
+  "identifier": "ai.waystation.launcher",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:3000",
+    "frontendDist": "../out"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Marketplace for Claude | WayStation",
+        "width": 800,
+        "height": 600,
+        "devtools": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": true
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["waystation"]
+      },
+      "mobile": [
+        { "host": "waystation.ai" }
+      ]
+    },
+    "shell": {
+      "open": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdFNDYxMTVFNjUxRkQxMzcKUldRMzBSOWxYaEZHZnIyeTh0eGVxY2czTzNIeHdOL0lieUdTMnFPM2Rlb2xENE13Qk9FeW1CSzQK",
+      "endpoints": [
+        "https://releases.waystation.ai/{{target}}/{{arch}}/{{current_version}}",
+        "https://waystation.ai/download/latest.json"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": "all",
+    "icon": [
+      "icons/128x128@2x.png",
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
