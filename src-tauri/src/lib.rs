@@ -255,7 +255,6 @@ async fn logout(app_handle: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-
 #[tauri::command]
 async fn save_way_key(access_token: String) -> Result<(), String> {
     // Save the token to ~/.waystation/token
@@ -348,8 +347,7 @@ pub fn run() {
     #[cfg(debug_assertions)] // only enable instrumentation in development builds
     let devtools = tauri_plugin_devtools::init();
 
-    let mut builder =
-        tauri::Builder::default();
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_process::init());
 
     #[cfg(debug_assertions)]
     {

@@ -1,3 +1,6 @@
+import { authService } from '@/app/lib/auth-service';
+
+
 // Key used for storing onboarding state in local storage
 const ONBOARDING_COMPLETED_KEY = 'waystation-onboarding-completed';
 
@@ -32,6 +35,14 @@ export function markOnboardingCompleted(): void {
 export function resetOnboardingStatus(): void {
   try {
     localStorage.removeItem(ONBOARDING_COMPLETED_KEY);
+    authService.logout().then(() => {
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      } else {
+        window.location.reload();
+      }
+
+    }).catch(console.error);
   } catch (error) {
     console.error('Error resetting onboarding status:', error);
   }

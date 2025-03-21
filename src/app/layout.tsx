@@ -5,7 +5,6 @@ import { PostHogProvider } from './providers';
 
 import BodyBackground from '@/app/components/BodyBackground';
 import Navigation from '@/app/components/Navigation';
-import Footer from '@/app/components/Footer';
 
 export default function RootLayout({children}: Readonly<{children: React.ReactNode;}>) {
   return (
@@ -19,7 +18,6 @@ export default function RootLayout({children}: Readonly<{children: React.ReactNo
           <div className="flex-grow">
             {children}
           </div>
-          <Footer />
         </PostHogProvider>
       </body>
     </html>

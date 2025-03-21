@@ -77,14 +77,6 @@ class AuthService {
           console.log('Reset onboarding');
           
           resetOnboardingStatus();
-          this.logout().then(() => {
-          if (window.location.pathname !== '/') {
-            window.location.href = '/';
-          } else {
-            window.location.reload();
-          }
-          }).catch(console.error);
-
         }
           // Process the OAuth callback URL
         else if (url.startsWith(REDIRECT_URI)) {
