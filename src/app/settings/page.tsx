@@ -184,11 +184,33 @@ export default function Settings() {
               Reset
             </button>
           </div>
-                    
+
           
         </div>
       </div>
-      
+      <h1 className="text-2xl font-bold mb-3">Credits</h1>
+          {/* Credits Section */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">
+                This app was inspired by Fleur and partially based on its{' '}
+                <a 
+                  href="https://github.com/fleuristes/fleur" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  source code
+                </a>
+                . Thanks to  <a 
+                  href="https://github.com/ferrucc-io" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >Ferruccio Balestreri</a> and others who came up with the idea!
+              </p>
+            </div>
+          </div>
       
       </div>
       <div className="fixed bottom-0 left-0 right-0 z-10">
