@@ -19,6 +19,8 @@ jobs:
             args: '--target aarch64-apple-darwin'
           - platform: 'macos-latest' # for Intel based macs.
             args: '--target x86_64-apple-darwin'
+          - platform: 'macos-latest' # Universal binary.
+            args: '--universal-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
     env:

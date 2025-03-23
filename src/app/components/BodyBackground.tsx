@@ -26,17 +26,17 @@ export default function BodyBackground() {
         objectFit: 'cover'
       }}
     />
-    <div className="absolute bg-[#00e5a8] rounded-full blur-[400px]" style={{
+    <div className="absolute bg-[#00e5a8] rounded-full blur-[125px]" style={{
       width: '37.43%',
       height: '37.43%',
-      left: '83.68%',
-      top: '0%'
+      left: '75%',
+      top: '-10%'
     }} />
-    <div className="absolute bg-[#5f9aff] rounded-full blur-[400px]" style={{
+    <div className="absolute bg-[#5f9aff] rounded-full blur-[125px]" style={{
       width: '64.86%',
       height: '64.86%',
-      left: '0%',
-      top: '65.56%'
+      left: '-33%',
+      top: '50%'
     }} />
     <div className="absolute opacity-60 bg-white" style={{
       width: '100%',

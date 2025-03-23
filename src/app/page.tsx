@@ -96,10 +96,16 @@ export default function Home() {
   };
 
 
+  // Determine if onboarding should be shown
+  const showOnboarding = !hasOnboardingCompleted && !isAuthenticated;
+
   return (
     <div className="flex flex-col">
-      {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center mx-6 my-6">
+      {/* Only show header and main content when onboarding is not shown */}
+      {!showOnboarding && (
+        <>
+          {/* Hero Section */}
+          <main className="flex-1 flex flex-col items-center justify-center mx-6 my-6">
         <div className="flex flex-row justify-between items-center w-full">
           <h2 className="text-2xl">Apps</h2>
           <ClaudeButton className="aurora-btn px-4 py-2 text-sm font-bold rounded hover:scale-105 transition-transform duration-300 w-auto text-center" />
@@ -117,8 +123,10 @@ export default function Home() {
             ))}
           </div>
         )}
-      </main>
-      <OnboardingScreen isOpen={!hasOnboardingCompleted && !isAuthenticated} onComplete={handleOnboardingComplete} />
+          </main>
+        </>
+      )}
+      <OnboardingScreen isOpen={showOnboarding} onComplete={handleOnboardingComplete} />
     </div>
   );
 }

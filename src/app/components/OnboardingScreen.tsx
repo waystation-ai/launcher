@@ -24,11 +24,11 @@ const DialogContentWithoutCloseButton = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    <DialogPrimitive.Overlay className="fixed inset-0 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         className
       )}
       {...props}>
@@ -163,7 +163,7 @@ export function OnboardingScreen({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onComplete()}>
-      <DialogContentWithoutCloseButton className="w-screen bg-sand-100 max-w-screen h-screen dark:bg-sand-200">
+      <DialogContentWithoutCloseButton className="w-screen  max-w-screen h-screen">
         <div className="flex flex-col justify-between h-full w-full py-8 ">
           <DragRegion className="absolute z-overlay top-0 left-0 right-0" />
           <div>
@@ -199,7 +199,7 @@ export function OnboardingScreen({
               </div>
             </div>
             <div className="mt-20">
-              <p className="text-[44px] text-center -tracking-[1px] leading-none">
+              <p className="text-[44px] text-center font-bold -tracking-[1px] leading-none">
                 <TextAnimate
                   delay={currentStep === 0 ? 2 : 0}
                   animation="blurInUp"
@@ -207,7 +207,7 @@ export function OnboardingScreen({
                   {steps[currentStep].title}
                 </TextAnimate>
               </p>
-              <p className="text-sm text-center text-black mt-2 ">
+              <p className="text-sm text-center text-[#535d75] mt-2 ">
                 <TextAnimate
                   delay={currentStep === 0 ? 2.5 : 0.5}
                   animation="blurInUp"

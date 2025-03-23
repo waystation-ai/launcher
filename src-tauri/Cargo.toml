@@ -1,6 +1,6 @@
 [package]
 name = "WayStation"
-version = "0.2.6"
+version = "0.2.9"
 description = "Marketplace for Claude by WayStation"
 authors = ["you"]
 edition = "2021"
