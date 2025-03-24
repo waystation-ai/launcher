@@ -1,3 +1,5 @@
+// Modified from original Apache 2.0 licensed code: Removed unused commands and adjusted for WayStation MCP
+
 use crate::file_utils::{ensure_config_file, ensure_mcp_servers};
 use dirs;
 use lazy_static::lazy_static;

@@ -1,3 +1,5 @@
+// Modified from original Apache 2.0 licensed code: Removed UVX support and adjusted for WayStation MCP
+
 use log::{debug, error, info};
 use once_cell::sync::Lazy;
 use std::process::Command;

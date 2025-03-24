@@ -1,3 +1,5 @@
+// Modified from original Apache 2.0 licensed code: adjusted for WayStation look and feel
+
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
