@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { fetch } from '@tauri-apps/plugin-http';
 import Link from "next/link";
+import Image from "next/image";
 
 import { authService } from "@/app/lib/auth-service";
 
@@ -31,7 +32,6 @@ interface ProviderConfig {
   description: string;
   icon: string;
   isConnected: boolean;
-  authorizationUrl: boolean;
 }
 
 
@@ -57,11 +57,21 @@ export default function Home() {
     // Fetch providers from the API
     const fetchProviders = async () => {
       try {
-        const response = await fetch('https://waystation.ai/api/marketplace');
+        console.log('Token:', authService.getAuthData()?.access_token);
+        
+        const response = await fetch('https://waystation.ai/api/marketplace', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authService.getAuthData()?.access_token}`
+          }
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch providers');
         }
         const data = await response.json();
+
+        console.log('Providers:', data);
         
         // Transform the data into the format expected by the markup
         // From: [{id: 'monday', name: 'Monday', ...}, ...]
@@ -72,8 +82,7 @@ export default function Home() {
             name: provider.name,
             description: provider.description,
             icon: provider.icon,
-            isConnected: provider.isConnected,
-            authorizationUrl: provider.isConnected
+            isConnected: provider.isConnected
           }
         ]);
         
@@ -106,23 +115,29 @@ export default function Home() {
         <>
           {/* Hero Section */}
           <main className="flex-1 flex flex-col items-center justify-center mx-6 my-6">
-        <div className="flex flex-row justify-between items-center w-full">
-          <h2 className="text-2xl">Apps</h2>
-          <ClaudeButton className="aurora-btn px-4 py-2 text-sm font-bold rounded hover:scale-105 transition-transform duration-300 w-auto text-center" />
-        </div>
-        {/* Provider Grid */}
-        {isLoading && <p>Loading apps...</p>}
-        {error && <p className="text-red-500">Error: {error}</p>}
-        {!isLoading && !error && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-6 w-full my-6">
-            {providers.map(([provider, config]) => (
-              <Link key={provider} href={`https://waystation.ai/connect/claude/${provider}?redirect_uri=waystation://home`} target="_blank" className="provider-card flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
-                <ProviderIcon provider={provider} url={config.icon} />
-                <p className="mt-2 text-sm text-gray-600 text-center">{config.name}</p>
-              </Link>
-            ))}
-          </div>
-        )}
+            <div className="flex flex-row justify-between items-center w-full">
+              <h2 className="text-2xl">Apps</h2>
+              <ClaudeButton className="aurora-btn px-4 py-2 text-sm font-bold rounded hover:scale-105 transition-transform duration-300 w-auto text-center" />
+            </div>
+            {/* Provider Grid */}
+            {isLoading && <p>Loading apps...</p>}
+            {error && <p className="text-red-500">Error: {error}</p>}
+            {!isLoading && !error && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-6 w-full my-6">
+                {providers.map(([provider, config]) => (
+                  <Link key={provider} href={`https://waystation.ai/connect/claude/${provider}?redirect_uri=waystation://home`} target="_blank" title={config.description} className="provider-card flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 relative">
+                    {config.isConnected && (
+                      <div className="absolute top-2 right-2">
+                        <Image src="/images/ico-connected.svg" width={16} height={16} alt="Connected" />
+                      </div>
+                    )}
+                    <ProviderIcon provider={provider} url={config.icon} />
+                    <p className="mt-2 text-sm text-gray-600 text-center">{config.name}</p>
+                    <p className="mt-1 text-xs text-[#9ca2b0] text-center">{config.isConnected ? "Connected" : '\u00A0'}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
           </main>
         </>
       )}

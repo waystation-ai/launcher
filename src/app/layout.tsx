@@ -1,7 +1,7 @@
 import "@/app/globals.css";
 import { sora } from './fonts';
 
-import { PostHogProvider } from './providers';
+import { PostHogProvider } from './analytics';
 
 import BodyBackground from '@/app/components/BodyBackground';
 import ConditionalHeader from '@/app/components/ConditionalHeader';
