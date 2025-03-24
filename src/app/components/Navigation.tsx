@@ -43,8 +43,8 @@ export default function Navigation() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between flex-grow">
-      <div className="flex w-full md:w-auto">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between flex-grow">
+      <div className="flex w-full sm:w-auto">
         <Link className="flex items-center gap-2" href="/">
         <Image src="/images/logo.svg" width={32} height={32} alt="WayStation" className="h-8 w-8" />
         <p className="text-2xl font-bold aurora-text">WayStation</p>

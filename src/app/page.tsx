@@ -116,8 +116,11 @@ export default function Home() {
           {/* Hero Section */}
           <main className="flex-1 flex flex-col items-center justify-center mx-6 my-6">
             <div className="flex flex-row justify-between items-center w-full">
-              <h2 className="text-2xl">Apps</h2>
-              <ClaudeButton className="aurora-btn px-4 py-2 text-sm font-bold rounded hover:scale-105 transition-transform duration-300 w-auto text-center" />
+              <div>
+                <h2 className="text-2xl">Apps</h2>
+                <p className="text-sm text-gray-600">Connect your favorite apps to Claude and let Claude interact with them for you</p>
+              </div>
+              <ClaudeButton className="aurora-btn px-4 py-2 ml-3 text-sm font-bold rounded hover:scale-105 transition-transform duration-300 w-auto text-center" />
             </div>
             {/* Provider Grid */}
             {isLoading && <p>Loading apps...</p>}
