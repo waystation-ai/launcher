@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "WayStation",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "identifier": "ai.waystation.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Marketplace for Claude | WayStation",
+        "title": "Marketplace for Claude | Powered by WayStation",
         "width": 800,
         "height": 600,
         "devtools": true
