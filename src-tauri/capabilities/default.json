@@ -10,7 +10,7 @@
     "opener:default",
     "shell:default",
     "deep-link:default",
-    "opener:default",
+    "process:default",
     {
       "identifier": "http:default",
       "allow": [
