@@ -36,12 +36,17 @@ interface ProviderConfig {
 
 
 export default function Home() {
-  const { authData, isAuthenticated } = useAuth();
+  const { authData, isAuthenticated, isInitialized } = useAuth();
   const [providers, setProviders] = useState<[string, ProviderConfig][]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
+    // Only fetch providers when auth is fully initialized
+    if (!isInitialized) {
+      return;
+    }
+    
     // Set loading state to true when we start fetching
     setIsLoading(true);
     
@@ -92,7 +97,7 @@ export default function Home() {
     };
 
     fetchProviders();
-  }, [authData]);
+  }, [authData, isInitialized]);
   
   const hasOnboardingCompleted = isOnboardingCompleted();
 
@@ -119,9 +124,10 @@ export default function Home() {
               <ClaudeButton className="aurora-btn px-4 py-2 ml-3 text-sm font-bold rounded hover:scale-105 transition-transform duration-300 w-auto text-center" />
             </div>
             {/* Provider Grid */}
-            {isLoading && <p>Loading apps...</p>}
-            {error && <p className="text-red-500">Error: {error}</p>}
-            {!isLoading && !error && (
+            {!isInitialized && <p>Initializing...</p>}
+            {isInitialized && isLoading && <p>Loading apps...</p>}
+            {isInitialized && error && <p className="text-red-500">Error: {error}</p>}
+            {isInitialized && !isLoading && !error && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-6 w-full my-6">
                 {providers.map(([provider, config]) => (
                   <Link key={provider} href={`https://waystation.ai/connect/claude/${provider}?redirect_uri=waystation://home`} target="_blank" title={config.description} className="provider-card flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 relative">
