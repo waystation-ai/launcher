@@ -4,7 +4,7 @@ import { fetch } from '@tauri-apps/plugin-http';
 import Link from "next/link";
 import Image from "next/image";
 
-import { authService } from "@/app/lib/auth-service";
+import { useAuth } from "@/app/hooks/useAuth";
 
 import ClaudeButton from "@/app/components/ClaudeButton";
 import { OnboardingScreen } from "@/app/components/OnboardingScreen";
@@ -36,35 +36,31 @@ interface ProviderConfig {
 
 
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { authData, isAuthenticated } = useAuth();
   const [providers, setProviders] = useState<[string, ProviderConfig][]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Subscribe to auth changes
-    const unsubscribe = authService.onAuthChange((data) => {
-      setIsAuthenticated(!!data);
-    });
-
-    // Cleanup subscription on unmount
-    return () => {
-      unsubscribe();
-    };
-  }, []);
   
   useEffect(() => {
+    // Set loading state to true when we start fetching
+    setIsLoading(true);
+    
     // Fetch providers from the API
     const fetchProviders = async () => {
       try {
-        console.log('Token:', authService.getAuthData()?.access_token);
+        // Prepare headers - include auth token if available
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+        
+        if (authData?.access_token) {
+          console.log('Token:', authData.access_token);
+          headers['Authorization'] = `Bearer ${authData.access_token}`;
+        }
         
         const response = await fetch('https://waystation.ai/api/marketplace', {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authService.getAuthData()?.access_token}`
-          }
+          headers
         });
         if (!response.ok) {
           throw new Error('Failed to fetch providers');
@@ -96,7 +92,7 @@ export default function Home() {
     };
 
     fetchProviders();
-  }, []);
+  }, [authData]);
   
   const hasOnboardingCompleted = isOnboardingCompleted();
 

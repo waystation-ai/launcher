@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { authService, AuthData } from '@/app/lib/auth-service';
+import { useAuth } from '@/app/hooks/useAuth';
 import { resetOnboardingStatus } from '@/app/lib/utils/onboarding';
 import AuthButton from "@/app/components/AuthButton";
 import Footer from '@/app/components/Footer';
@@ -10,18 +10,13 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
 
 export default function Settings() {
-  const [authData, setAuthData] = useState<AuthData | null>(null);
+  const { authData } = useAuth();
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'downloading' | 'ready'>('idle');
   const [updateInfo, setUpdateInfo] = useState<{ version: string, notes: string } | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<{ downloaded: number, total: number } | null>(null);
   const [appVersion, setAppVersion] = useState<string>('Loading...');
 
   useEffect(() => {
-    // Subscribe to auth changes
-    const unsubscribe = authService.onAuthChange((data) => {
-      setAuthData(data);
-    });
-
     // Get app version
     getVersion().then(version => {
       setAppVersion(version);
@@ -29,11 +24,6 @@ export default function Settings() {
       console.error('Failed to get app version:', err);
       setAppVersion('Unknown');
     });
-
-    // Cleanup subscription on unmount
-    return () => {
-      unsubscribe();
-    };
   }, []);
 
   const checkForUpdates = async () => {
