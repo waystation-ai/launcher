@@ -24,13 +24,35 @@ fn get_config_path() -> Result<PathBuf, String> {
         crate::environment::is_test_mode()
     );
 
-    // Otherwise use the default path
-    let default_path = dirs::home_dir()
-        .ok_or("Could not find home directory".to_string())?
-        .join("Library/Application Support/Claude/claude_desktop_config.json");
+    #[cfg(target_os = "macos")]
+    {
+        // Use macOS-specific path
+        let default_path = dirs::home_dir()
+            .ok_or("Could not find home directory".to_string())?
+            .join("Library/Application Support/Claude/claude_desktop_config.json");
+        debug!("Using default config path: {}", default_path.display());
+        return Ok(default_path);
+    }
 
-    debug!("Using default config path: {}", default_path.display());
-    Ok(default_path)
+    #[cfg(target_os = "windows")]
+    {
+        // Use Windows-specific path
+        let default_path = dirs::config_dir()
+            .ok_or("Could not find config directory".to_string())?
+            .join("Claude/claude_desktop_config.json");
+        debug!("Using default config path: {}", default_path.display());
+        return Ok(default_path);
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Fallback for other platforms
+        let default_path = dirs::config_dir()
+            .ok_or("Could not find config directory".to_string())?
+            .join("claude/claude_desktop_config.json");
+        debug!("Using default config path: {}", default_path.display());
+        return Ok(default_path);
+    }
 }
 
 pub fn get_config() -> Result<Value, String> {
@@ -96,22 +118,53 @@ pub fn save_config(config: &Value) -> Result<(), String> {
 pub fn restart_claude_app() -> Result<String, String> {
     info!("Restarting Claude app...");
 
-    // Kill the Claude app
-    Command::new("pkill")
-        .arg("-x")
-        .arg("Claude")
-        .output()
-        .map_err(|e| format!("Failed to kill Claude app: {}", e))?;
+    #[cfg(target_os = "macos")]
+    {
+        // Kill the Claude app
+        Command::new("pkill")
+            .arg("-x")
+            .arg("Claude")
+            .output()
+            .map_err(|e| format!("Failed to kill Claude app: {}", e))?;
 
-    // Wait a moment to ensure it's fully closed
-    sleep(Duration::from_millis(500));
+        // Wait a moment to ensure it's fully closed
+        sleep(Duration::from_millis(500));
 
-    // Relaunch the app
-    Command::new("open")
-        .arg("-a")
-        .arg("Claude")
-        .output()
-        .map_err(|e| format!("Failed to relaunch Claude app: {}", e))?;
+        // Relaunch the app
+        Command::new("open")
+            .arg("-a")
+            .arg("Claude")
+            .output()
+            .map_err(|e| format!("Failed to relaunch Claude app: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Kill the Claude app using taskkill
+        Command::new("taskkill")
+            .args(&["/F", "/IM", "Claude.exe"])
+            .output()
+            .map_err(|e| format!("Failed to kill Claude app: {}", e))?;
+
+        // Wait a moment to ensure it's fully closed
+        sleep(Duration::from_millis(500));
+
+        // Get the path to Claude.exe (assuming it's in Program Files)
+        let program_files = std::env::var("ProgramFiles")
+            .map_err(|e| format!("Failed to get Program Files path: {}", e))?;
+        let claude_path = format!("{}\\Claude\\Claude.exe", program_files);
+
+        // Relaunch the app
+        Command::new("cmd")
+            .args(&["/C", "start", "", &claude_path])
+            .output()
+            .map_err(|e| format!("Failed to relaunch Claude app: {}", e))?;
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        return Err("Restarting Claude app is not supported on this platform".to_string());
+    }
 
     Ok("Claude app restarted successfully".to_string())
 }
@@ -190,7 +243,28 @@ pub fn check_claude_installed() -> Result<bool, String> {
         return Ok(claude_app_path.exists());
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        // Check common installation locations
+        let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+        let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+        
+        let possible_paths = [
+            format!("{}\\Claude\\Claude.exe", program_files),
+            format!("{}\\Claude\\Claude.exe", program_files_x86),
+        ];
+        
+        for path in possible_paths.iter() {
+            debug!("Checking for Claude.exe at: {}", path);
+            if std::path::Path::new(path).exists() {
+                return Ok(true);
+            }
+        }
+        
+        return Ok(false);
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         return Ok(false);
     }
