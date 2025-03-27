@@ -24,13 +24,35 @@ fn get_config_path() -> Result<PathBuf, String> {
         crate::environment::is_test_mode()
     );
 
-    // Otherwise use the default path
-    let default_path = dirs::home_dir()
-        .ok_or("Could not find home directory".to_string())?
-        .join("Library/Application Support/Claude/claude_desktop_config.json");
+    #[cfg(target_os = "macos")]
+    {
+        // Use macOS-specific path
+        let default_path = dirs::home_dir()
+            .ok_or("Could not find home directory".to_string())?
+            .join("Library/Application Support/Claude/claude_desktop_config.json");
+        debug!("Using default config path: {}", default_path.display());
+        return Ok(default_path);
+    }
 
-    debug!("Using default config path: {}", default_path.display());
-    Ok(default_path)
+    #[cfg(target_os = "windows")]
+    {
+        // Use Windows-specific path
+        let default_path = dirs::config_dir()
+            .ok_or("Could not find config directory".to_string())?
+            .join("Claude/claude_desktop_config.json");
+        debug!("Using default config path: {}", default_path.display());
+        return Ok(default_path);
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Fallback for other platforms
+        let default_path = dirs::config_dir()
+            .ok_or("Could not find config directory".to_string())?
+            .join("claude/claude_desktop_config.json");
+        debug!("Using default config path: {}", default_path.display());
+        return Ok(default_path);
+    }
 }
 
 pub fn get_config() -> Result<Value, String> {
@@ -92,26 +114,92 @@ pub fn save_config(config: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn get_claude_path() -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        let claude_app_path = PathBuf::from("/Applications/Claude.app");
+        debug!("Checking for Claude.app at: {}", claude_app_path.display());
+        if claude_app_path.exists() {
+            return Some(claude_app_path);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let program_files = std::env::var("ProgramFiles").unwrap_or_default();
+        let program_files_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+        let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
+
+        let possible_paths = [
+            format!("{}\\AnthropicClaude\\Claude.exe", program_files),
+            format!("{}\\AnthropicClaude\\Claude.exe", program_files_x86),
+            format!("{}\\AnthropicClaude\\claude.exe", local_app_data),
+        ];
+
+        for path in possible_paths.iter() {
+            debug!("Checking for Claude.exe at: {}", path);
+            let path_buf = PathBuf::from(path);
+            if path_buf.exists() {
+                return Some(path_buf);
+            }
+        }
+    }
+
+    None
+}
+
 #[tauri::command]
 pub fn restart_claude_app() -> Result<String, String> {
     info!("Restarting Claude app...");
 
-    // Kill the Claude app
-    Command::new("pkill")
-        .arg("-x")
-        .arg("Claude")
-        .output()
-        .map_err(|e| format!("Failed to kill Claude app: {}", e))?;
+    #[cfg(target_os = "macos")]
+    {
+        // Kill the Claude app
+        Command::new("pkill")
+            .arg("-x")
+            .arg("Claude")
+            .output()
+            .map_err(|e| format!("Failed to kill Claude app: {}", e))?;
 
-    // Wait a moment to ensure it's fully closed
-    sleep(Duration::from_millis(500));
+        // Wait a moment to ensure it's fully closed
+        sleep(Duration::from_millis(500));
 
-    // Relaunch the app
-    Command::new("open")
-        .arg("-a")
-        .arg("Claude")
-        .output()
-        .map_err(|e| format!("Failed to relaunch Claude app: {}", e))?;
+        // Relaunch the app
+        Command::new("open")
+            .arg("-a")
+            .arg("Claude")
+            .output()
+            .map_err(|e| format!("Failed to relaunch Claude app: {}", e))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Kill the Claude app using taskkill
+        Command::new("taskkill")
+            .args(&["/F", "/IM", "Claude.exe"])
+            .output()
+            .map_err(|e| format!("Failed to kill Claude app: {}", e))?;
+
+        // Wait a moment to ensure it's fully closed
+        sleep(Duration::from_millis(500));
+
+        if let Some(path) = get_claude_path() {
+            debug!("Claude installation found at: {}", path.display());
+
+            // Relaunch the app
+            Command::new(path.to_str().unwrap())
+            .spawn()
+            .map_err(|e| format!("Failed to relaunch Claude app: {}", e))?;
+        } else {
+            debug!("Claude installation not found");
+            return Err("Claude installation not found".to_string());
+        }
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        return Err("Restarting Claude app is not supported on this platform".to_string());
+    }
 
     Ok("Claude app restarted successfully".to_string())
 }
@@ -183,15 +271,11 @@ pub fn check_onboarding_completed() -> Result<bool, String> {
 
 #[tauri::command]
 pub fn check_claude_installed() -> Result<bool, String> {
-    #[cfg(target_os = "macos")]
-    {
-        let claude_app_path = std::path::PathBuf::from("/Applications/Claude.app");
-        debug!("Checking for Claude.app at: {}", claude_app_path.display());
-        return Ok(claude_app_path.exists());
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        return Ok(false);
+    if let Some(path) = get_claude_path() {
+        debug!("Claude installation found at: {}", path.display());
+        Ok(true)
+    } else {
+        debug!("Claude installation not found");
+        Ok(false)
     }
 }

@@ -32,4 +32,10 @@ fn main() {
             Err(e) => println!("cargo:warning=Failed to copy Info.plist: {}", e),
         }
     }
+    
+    // For Windows, the URL scheme registration is handled by Tauri's deep-link plugin
+    // through the Windows registry, so no additional steps are needed here
+    if cfg!(target_os = "windows") {
+        println!("cargo:warning=Building for Windows, URL scheme will be registered via the installer");
+    }
 }

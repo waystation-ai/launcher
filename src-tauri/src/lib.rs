@@ -257,18 +257,40 @@ async fn logout(app_handle: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn save_way_key(access_token: String) -> Result<(), String> {
-    // Save the token to ~/.waystation/token
-    let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
-    let waystation_dir = home_dir.join(".waystation");
-
-    // Create directory if it doesn't exist
-    std::fs::create_dir_all(&waystation_dir).map_err(|e| e.to_string())?;
-
-    // Write token to file
-    let token_path = waystation_dir.join("token");
-    std::fs::write(&token_path, format!("Bearer {}", &access_token)).map_err(|e| e.to_string())?;
-
-    Ok(())
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use AppData/Roaming directory
+        let app_data_dir = dirs::data_dir()
+            .ok_or("Could not determine AppData directory")?
+            .join("WayStation");
+            
+        // Create directory if it doesn't exist
+        std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+        
+        // Write token to file
+        let token_path = app_data_dir.join("token");
+        std::fs::write(&token_path, format!("Bearer {}", &access_token))
+            .map_err(|e| e.to_string())?;
+                        
+        return Ok(());
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    {
+        // On macOS/Linux, continue using ~/.waystation
+        let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
+        let waystation_dir = home_dir.join(".waystation");
+        
+        // Create directory if it doesn't exist
+        std::fs::create_dir_all(&waystation_dir).map_err(|e| e.to_string())?;
+        
+        // Write token to file
+        let token_path = waystation_dir.join("token");
+        std::fs::write(&token_path, format!("Bearer {}", &access_token))
+            .map_err(|e| e.to_string())?;
+            
+        return Ok(());
+    }
 }
 
 #[tauri::command]
@@ -361,6 +383,9 @@ pub fn run() {
                 .get_webview_window("main")
                 .expect("no main window")
                 .set_focus();
+
+            println!("a new app instance was opened with {_args:?} and the deep link event was already triggered");
+
         }));
     }
 
@@ -369,9 +394,18 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
+        .setup(|app| {
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                app.deep_link().register_all()?;
+            }
+            Ok(())
+        })        
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+
         .manage(AuthStateManager(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             login,

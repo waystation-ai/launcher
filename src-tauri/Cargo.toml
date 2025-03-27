@@ -61,5 +61,5 @@ incremental = false
 codegen-units = 1  # Enables better optimization, slower compilation
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-single-instance = "2"
+tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }
 tauri-plugin-updater = "2"
