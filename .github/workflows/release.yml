@@ -30,6 +30,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        if: matrix.platform == 'windows-latest'      
+        with:
+          go-version: 'stable' # The Go version to download (if necessary) and use.
 
       - name: setup node
         uses: actions/setup-node@v4
@@ -62,6 +66,9 @@ jobs:
           chmod 400 ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
           echo "APPLE_API_KEY_PATH=~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8" >> $GITHUB_ENV
 
+      - name: Install relic for signing
+        if: matrix.platform == 'windows-latest'
+        run: go install github.com/sassoftware/relic/v8@latest       
 
       - uses: tauri-apps/tauri-action@v0
         env:
