@@ -52,6 +52,9 @@
       "icons/128x128.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "signCommand": "relic sign --file %1 --key azure --config relic.conf"
+    }
   }
 }
