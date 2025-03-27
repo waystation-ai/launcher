@@ -595,9 +595,6 @@ fn install_nvm() -> Result<(), String> {
         }
     }
 
-    NVM_INSTALLED.store(true, Ordering::Relaxed);
-    info!("nvm installed successfully");
-    Ok(())
 }
 
 fn ensure_node_environment() -> Result<String, String> {
