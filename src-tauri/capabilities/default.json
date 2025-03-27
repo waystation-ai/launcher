@@ -11,6 +11,7 @@
     "shell:default",
     "deep-link:default",
     "process:default",
+    "log:default",
     {
       "identifier": "http:default",
       "allow": [

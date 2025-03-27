@@ -263,32 +263,32 @@ async fn save_way_key(access_token: String) -> Result<(), String> {
         let app_data_dir = dirs::data_dir()
             .ok_or("Could not determine AppData directory")?
             .join("WayStation");
-            
+
         // Create directory if it doesn't exist
         std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
-        
+
         // Write token to file
         let token_path = app_data_dir.join("token");
         std::fs::write(&token_path, format!("Bearer {}", &access_token))
             .map_err(|e| e.to_string())?;
-                        
+
         return Ok(());
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         // On macOS/Linux, continue using ~/.waystation
         let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
         let waystation_dir = home_dir.join(".waystation");
-        
+
         // Create directory if it doesn't exist
         std::fs::create_dir_all(&waystation_dir).map_err(|e| e.to_string())?;
-        
+
         // Write token to file
         let token_path = waystation_dir.join("token");
         std::fs::write(&token_path, format!("Bearer {}", &access_token))
             .map_err(|e| e.to_string())?;
-            
+
         return Ok(());
     }
 }
@@ -365,16 +365,7 @@ async fn refresh_token(app_handle: AppHandle) -> Result<AuthData, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // This should be called as early in the execution of the app as possible
-    #[cfg(debug_assertions)] // only enable instrumentation in development builds
-    let devtools = tauri_plugin_devtools::init();
-
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_process::init());
-
-    #[cfg(debug_assertions)]
-    {
-        builder = builder.plugin(devtools);
-    }
+    let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
     {
@@ -386,14 +377,20 @@ pub fn run() {
 
             println!("a new app instance was opened with {_args:?} and the deep link event was already triggered");
 
-        }));
+        })); 
     }
 
     // Create the Tauri application builder
     builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_deep_link::init())        
+        .plugin(tauri_plugin_log::Builder::new()
+            .level(log::LevelFilter::Warn)
+            .target(tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview, ))
+            .target(tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: Some("logs".to_string()), }, ))
+            .build())
         .setup(|app| {
             #[cfg(any(windows, target_os = "linux"))]
             {
@@ -401,11 +398,10 @@ pub fn run() {
                 app.deep_link().register_all()?;
             }
             Ok(())
-        })        
+        })
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
-
         .manage(AuthStateManager(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             login,
