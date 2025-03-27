@@ -257,13 +257,30 @@ pub fn uninstall_waystation_mcp() -> Result<String, String> {
     }
 }
 
+pub fn get_app_directory() -> Result<std::path::PathBuf, String> {
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use AppData/Roaming directory
+        let app_data_dir = dirs::data_dir()
+            .ok_or("Could not determine AppData directory")?
+            .join("WayStation");
+        return Ok(app_data_dir);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // On macOS/Linux, use ~/.waystation
+        let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
+        let waystation_dir = home_dir.join(".waystation");
+        return Ok(waystation_dir);
+    }
+}
+
+
 #[tauri::command]
 pub fn check_onboarding_completed() -> Result<bool, String> {
-    let home = match dirs::home_dir() {
-        Some(path) => path,
-        None => return Err("Could not determine home directory".to_string()),
-    };
-    let onboarding_file = home.join(".waystation/onboarding_completed");
+    let app_directory = get_app_directory()?;
+    let onboarding_file = app_directory.join("onboarding_completed");
 
     debug!("Checking onboarding file at: {}", onboarding_file.display());
     Ok(onboarding_file.exists())

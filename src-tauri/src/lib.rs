@@ -257,40 +257,17 @@ async fn logout(app_handle: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn save_way_key(access_token: String) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        // On Windows, use AppData/Roaming directory
-        let app_data_dir = dirs::data_dir()
-            .ok_or("Could not determine AppData directory")?
-            .join("WayStation");
+    let app_dir = app::get_app_directory()?;
 
-        // Create directory if it doesn't exist
-        std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
 
-        // Write token to file
-        let token_path = app_data_dir.join("token");
-        std::fs::write(&token_path, format!("Bearer {}", &access_token))
-            .map_err(|e| e.to_string())?;
+    // Write token to file
+    let token_path = app_dir.join("token");
+    std::fs::write(&token_path, format!("Bearer {}", &access_token))
+        .map_err(|e| e.to_string())?;
 
-        return Ok(());
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        // On macOS/Linux, continue using ~/.waystation
-        let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
-        let waystation_dir = home_dir.join(".waystation");
-
-        // Create directory if it doesn't exist
-        std::fs::create_dir_all(&waystation_dir).map_err(|e| e.to_string())?;
-
-        // Write token to file
-        let token_path = waystation_dir.join("token");
-        std::fs::write(&token_path, format!("Bearer {}", &access_token))
-            .map_err(|e| e.to_string())?;
-
-        return Ok(());
-    }
+    Ok(())
 }
 
 #[tauri::command]

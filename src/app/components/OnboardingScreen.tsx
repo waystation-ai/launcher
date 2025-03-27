@@ -15,7 +15,7 @@ import { BlurFade } from './magicui/blur-fade';
 import AuthButton from './AuthButton';
 import { markOnboardingCompleted } from '@/app/lib/utils/onboarding';
 
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 interface OnboardingScreenProps {
   isOpen: boolean;
@@ -154,7 +154,7 @@ export function OnboardingScreen({
   };
 
   const handleDownloadClaude = () => {
-    openPath("https://claude.ai/download")
+    openUrl("https://claude.ai/download")
     .then(() => {
       console.log("Opened Claude download page");
     })
