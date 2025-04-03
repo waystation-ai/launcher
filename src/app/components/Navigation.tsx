@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
+
 import { authService, AuthData, UserInfo } from '@/app/lib/auth-service';
 import AuthButton from "@/app/components/AuthButton";
 
@@ -41,6 +43,17 @@ export default function Navigation() {
       </Link>
     );
   };
+
+  const posthog = usePostHog();
+
+
+  if (authData?.user_info) {
+    const user = authData.user_info;
+    posthog.identify(user.sub, {
+      email: user.email,
+      name: user.name,
+    });
+  }  
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between flex-grow">
