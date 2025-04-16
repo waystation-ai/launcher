@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+
 import { fetch } from '@tauri-apps/plugin-http';
 import Link from "next/link";
 import Image from "next/image";
@@ -34,12 +36,58 @@ interface ProviderConfig {
   isConnected: boolean;
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function Home() {
   const { authData, isAuthenticated, isInitialized } = useAuth();
   const [providers, setProviders] = useState<[string, ProviderConfig][]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const tryEnsureEnvironment = async (retries = 3): Promise<string> => {
+      try {
+        const result = await invoke<string>("ensure_environment");
+        if (result.includes("failed") || result.includes("error")) {
+          console.warn(
+            `Environment setup attempt failed: ${result}, retries left: ${retries}`
+          );
+          throw new Error(result);
+        }
+        console.log("Environment setup successful");
+        return result;
+      } catch (error) {
+        if (retries > 0) {
+          console.warn(
+            `Retrying environment setup in 2 seconds, ${retries} attempts remaining`
+          );
+          await delay(2000);
+          return tryEnsureEnvironment(retries - 1);
+        }
+        throw error;
+      }
+    };
+
+    const initializeEnvironment = async () => {
+      if (!mounted) return;
+
+      try {
+        await tryEnsureEnvironment();
+        if (!mounted) return;
+
+      } catch (error) {
+        console.error("Failed to initialize environment after retries:", error);
+      }
+    };
+
+    initializeEnvironment();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);  
   
   useEffect(() => {
     // Only fetch providers when auth is fully initialized

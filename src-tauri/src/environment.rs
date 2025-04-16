@@ -6,6 +6,13 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+// Windows-specific constants
+#[cfg(target_os = "windows")]
+pub const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 static NVM_INSTALLED: AtomicBool = AtomicBool::new(false);
 static NODE_INSTALLED: AtomicBool = AtomicBool::new(false);
 static ENVIRONMENT_SETUP_STARTED: AtomicBool = AtomicBool::new(false);
@@ -191,13 +198,12 @@ fn check_node_version() -> Result<String, String> {
 
     #[cfg(target_os = "macos")]
     {
-        // Check NVM-installed node first
         let shell_command = format!(
             r#"
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm list | grep -w "{}" || true
-        "#,
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm list | grep -w "{}" || true
+      "#,
             NODE_VERSION
         );
 
@@ -215,15 +221,54 @@ fn check_node_version() -> Result<String, String> {
         }
     }
 
-    // Check system node (works on all platforms)
-    let node_command = if cfg!(target_os = "windows") {
-        "node.exe"
-    } else {
-        "node"
-    };
+    #[cfg(target_os = "windows")]
+    {
+        if check_nvm_installed() {
+            let nvm_cmd = Command::new("nvm")
+                .arg("list")
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .map_err(|e| format!("Failed to check nvm node version: {}", e))?;
 
-    let version_command = Command::new(node_command)
+            let output_str = String::from_utf8_lossy(&nvm_cmd.stdout);
+            let version_no_v = NODE_VERSION.trim_start_matches('v');
+
+            if output_str.contains(NODE_VERSION) || output_str.contains(version_no_v) {
+                info!("Node.js {} is already installed via nvm", NODE_VERSION);
+                NODE_INSTALLED.store(true, Ordering::SeqCst);
+                return Ok(NODE_VERSION.to_string());
+            }
+
+            let nvm_root = std::env::var("NVM_HOME")
+                .ok()
+                .map(std::path::PathBuf::from)
+                .or_else(|| dirs::home_dir().map(|p| p.join("AppData").join("Roaming").join("nvm")))
+                .ok_or("Could not determine NVM_HOME")?;
+
+            let node_exists = nvm_root.join(version_no_v).join("node.exe").exists()
+                || nvm_root
+                    .join(format!("v{}", version_no_v))
+                    .join("node.exe")
+                    .exists();
+
+            if node_exists {
+                info!("Node.js {} binary found via nvm", NODE_VERSION);
+                NODE_INSTALLED.store(true, Ordering::SeqCst);
+                return Ok(NODE_VERSION.to_string());
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    let version_command = Command::new("node")
         .arg("--version")
+        .output()
+        .map_err(|e| format!("Failed to check node version: {}", e))?;
+
+    #[cfg(target_os = "windows")]
+    let version_command = Command::new("node")
+        .arg("--version")
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .map_err(|e| format!("Failed to check node version: {}", e))?;
 
@@ -250,71 +295,23 @@ fn check_nvm_version() -> Result<String, String> {
         return Ok("0.40.1".to_string());
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        let shell_command = r#"
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm --version
-        "#;
+    let shell_command = r#"
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        nvm --version
+    "#;
 
-        let output = Command::new("bash")
-            .arg("-c")
-            .arg(shell_command)
-            .output()
-            .map_err(|e| format!("Failed to check nvm version: {}", e))?;
+    let output = Command::new("bash")
+        .arg("-c")
+        .arg(shell_command)
+        .output()
+        .map_err(|e| format!("Failed to check nvm version: {}", e))?;
 
-        if !output.status.success() {
-            return Err("Failed to get nvm version".to_string());
-        }
-
-        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+    if !output.status.success() {
+        return Err("Failed to get nvm version".to_string());
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        // On Windows, check if nvm-windows is installed
-        let appdata = std::env::var("APPDATA").unwrap_or_default();
-        let nvm_home = std::env::var("NVM_HOME").unwrap_or_else(|_| format!("{}\\nvm", appdata));
-        
-        let nvm_exe = format!("{}\\nvm.exe", nvm_home);
-        
-        if !std::path::Path::new(&nvm_exe).exists() {
-            return Err("NVM for Windows not found".to_string());
-        }
-        
-        let output = Command::new(&nvm_exe)
-            .arg("version")
-            .output()
-            .map_err(|e| format!("Failed to check nvm version: {}", e))?;
-            
-        if !output.status.success() {
-            return Err("Failed to get nvm version".to_string());
-        }
-        
-        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        let shell_command = r#"
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm --version
-        "#;
-
-        let output = Command::new("bash")
-            .arg("-c")
-            .arg(shell_command)
-            .output()
-            .map_err(|e| format!("Failed to check nvm version: {}", e))?;
-
-        if !output.status.success() {
-            return Err("Failed to get nvm version".to_string());
-        }
-
-        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
-    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 fn install_node() -> Result<(), String> {
@@ -322,7 +319,6 @@ fn install_node() -> Result<(), String> {
         return Ok(());
     }
 
-    // Double-check node version to avoid race conditions
     match check_node_version() {
         Ok(version) if version == NODE_VERSION => {
             info!(
@@ -337,19 +333,18 @@ fn install_node() -> Result<(), String> {
 
     info!("Installing Node.js {}", NODE_VERSION);
 
+    if !check_nvm_installed() {
+        return Err("nvm is required to install Node.js".to_string());
+    }
+
     #[cfg(target_os = "macos")]
     {
-        // Verify nvm is properly installed before using it
-        if !check_nvm_installed() {
-            return Err("nvm is required to install Node.js".to_string());
-        }
-
         let shell_command = format!(
             r#"
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install {} --no-progress
-        "#,
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install {} --no-progress
+      "#,
             NODE_VERSION
         );
 
@@ -369,65 +364,12 @@ fn install_node() -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        // On Windows, we'll use nvm-windows if available, otherwise direct the user to install Node.js
-        if check_nvm_installed() {
-            let appdata = std::env::var("APPDATA").unwrap_or_default();
-            let nvm_home = std::env::var("NVM_HOME").unwrap_or_else(|_| format!("{}\\nvm", appdata));
-            let nvm_exe = format!("{}\\nvm.exe", nvm_home);
-            
-            let version_without_v = NODE_VERSION.trim_start_matches('v');
-            
-            let output = Command::new(&nvm_exe)
-                .args(&["install", version_without_v])
-                .output()
-                .map_err(|e| format!("Failed to run node installation: {}", e))?;
-                
-            if !output.status.success() {
-                return Err(format!(
-                    "Node installation failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                ));
-            }
-            
-            // Use the installed version
-            let use_output = Command::new(&nvm_exe)
-                .args(&["use", version_without_v])
-                .output()
-                .map_err(|e| format!("Failed to use installed Node.js version: {}", e))?;
-                
-            if !use_output.status.success() {
-                return Err(format!(
-                    "Failed to use installed Node.js version: {}",
-                    String::from_utf8_lossy(&use_output.stderr)
-                ));
-            }
-        } else {
-            return Err(format!(
-                "Node.js {} is required but not installed. Please install it from https://nodejs.org/",
-                NODE_VERSION
-            ));
-        }
-    }
+        let version_without_v = NODE_VERSION.trim_start_matches('v');
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        // Verify nvm is properly installed before using it
-        if !check_nvm_installed() {
-            return Err("nvm is required to install Node.js".to_string());
-        }
-
-        let shell_command = format!(
-            r#"
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install {} --no-progress
-        "#,
-            NODE_VERSION
-        );
-
-        let output = Command::new("bash")
-            .arg("-c")
-            .arg(shell_command)
+        let output = Command::new("nvm")
+            .arg("install")
+            .arg(version_without_v)
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
             .map_err(|e| format!("Failed to run node installation: {}", e))?;
 
@@ -435,6 +377,39 @@ fn install_node() -> Result<(), String> {
             return Err(format!(
                 "Node installation failed: {}",
                 String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        let use_output = Command::new("nvm")
+            .arg("use")
+            .arg(version_without_v)
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("Failed to set node version: {}", e))?;
+
+        if !use_output.status.success() {
+            return Err(format!(
+                "Failed to set node version: {}",
+                String::from_utf8_lossy(&use_output.stderr)
+            ));
+        }
+
+        let nvm_root = std::env::var("NVM_HOME")
+            .ok()
+            .map(std::path::PathBuf::from)
+            .or_else(|| dirs::home_dir().map(|p| p.join("AppData").join("Roaming").join("nvm")))
+            .unwrap_or_default();
+
+        let node_exists = nvm_root.join(version_without_v).join("node.exe").exists()
+            || nvm_root
+                .join(format!("v{}", version_without_v))
+                .join("node.exe")
+                .exists();
+
+        if !node_exists {
+            return Err(format!(
+                "Node.js {} installation verification failed. Binary not found at expected locations.",
+                NODE_VERSION
             ));
         }
     }
@@ -457,7 +432,6 @@ fn check_nvm_installed() -> bool {
 
     #[cfg(target_os = "macos")]
     {
-        // First check if .nvm directory exists
         let nvm_dir = dirs::home_dir()
             .map(|path| path.join(".nvm"))
             .filter(|path| path.exists());
@@ -467,7 +441,6 @@ fn check_nvm_installed() -> bool {
             return false;
         }
 
-        // Then check if we can run nvm to confirm it's properly installed
         match check_nvm_version() {
             Ok(version) => {
                 info!("NVM version {} is installed", version);
@@ -483,55 +456,24 @@ fn check_nvm_installed() -> bool {
 
     #[cfg(target_os = "windows")]
     {
-        // Check for nvm-windows
-        let appdata = std::env::var("APPDATA").unwrap_or_default();
-        let nvm_home = std::env::var("NVM_HOME").unwrap_or_else(|_| format!("{}\\nvm", appdata));
-        
-        let nvm_exe = format!("{}\\nvm.exe", nvm_home);
-        
-        if !std::path::Path::new(&nvm_exe).exists() {
-            info!("NVM for Windows not found at {}", nvm_exe);
-            return false;
-        }
-        
-        // Check if we can run nvm to confirm it's properly installed
-        match check_nvm_version() {
-            Ok(version) => {
-                info!("NVM for Windows version {} is installed", version);
-                NVM_INSTALLED.store(true, Ordering::Relaxed);
-                true
-            }
-            Err(_) => {
-                info!("NVM for Windows exists but command failed");
-                false
-            }
-        }
-    }
+        let nvm_home = std::env::var("NVM_HOME")
+            .ok()
+            .map(std::path::PathBuf::from)
+            .or_else(|| dirs::home_dir().map(|p| p.join("AppData").join("Roaming").join("nvm")));
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        // First check if .nvm directory exists
-        let nvm_dir = dirs::home_dir()
-            .map(|path| path.join(".nvm"))
-            .filter(|path| path.exists());
-
-        if nvm_dir.is_none() {
-            info!("NVM directory not found");
-            return false;
+        if let Some(nvm_path) = nvm_home {
+            if nvm_path.exists() {
+                let nvm_exe = nvm_path.join("nvm.exe");
+                if nvm_exe.exists() {
+                    info!("NVM for Windows found at {}", nvm_path.display());
+                    NVM_INSTALLED.store(true, Ordering::Relaxed);
+                    return true;
+                }
+            }
         }
 
-        // Then check if we can run nvm to confirm it's properly installed
-        match check_nvm_version() {
-            Ok(version) => {
-                info!("NVM version {} is installed", version);
-                NVM_INSTALLED.store(true, Ordering::Relaxed);
-                true
-            }
-            Err(_) => {
-                info!("NVM directory exists but nvm command failed");
-                false
-            }
-        }
+        info!("NVM for Windows not found");
+        false
     }
 }
 
@@ -540,7 +482,6 @@ fn install_nvm() -> Result<(), String> {
         return Ok(());
     }
 
-    // Double-check nvm installation to avoid race conditions
     if check_nvm_installed() {
         info!("nvm is already installed, skipping installation");
         return Ok(());
@@ -551,8 +492,8 @@ fn install_nvm() -> Result<(), String> {
         info!("Installing nvm...");
 
         let shell_command = r#"
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-        "#;
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+      "#;
 
         let output = Command::new("bash")
             .arg("-c")
@@ -566,38 +507,68 @@ fn install_nvm() -> Result<(), String> {
                 String::from_utf8_lossy(&output.stderr)
             ));
         }
+
+        NVM_INSTALLED.store(true, Ordering::Relaxed);
+        info!("nvm installed successfully");
+        Ok(())
     }
 
     #[cfg(target_os = "windows")]
     {
-        return Err("Automatic installation of NVM for Windows is not supported. Please install it manually from https://github.com/coreybutler/nvm-windows".to_string());
-    }
+        info!("Installing nvm for Windows...");
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        info!("Installing nvm...");
+        let temp_dir = std::env::temp_dir().join("waystation_nvm_install");
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let installer_path = temp_dir.join("nvm-setup.exe");
 
-        let shell_command = r#"
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-        "#;
+        let nvm_installer_url =
+            "https://github.com/coreybutler/nvm-windows/releases/download/1.1.11/nvm-setup.exe";
 
-        let output = Command::new("bash")
-            .arg("-c")
-            .arg(shell_command)
+        let download_cmd = format!(
+            "Invoke-WebRequest -Uri '{}' -OutFile '{}'",
+            nvm_installer_url,
+            installer_path.to_string_lossy()
+        );
+
+        let dl_output = Command::new("powershell")
+            .arg("-Command")
+            .arg(&download_cmd)
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
-            .map_err(|e| format!("Failed to install nvm: {}", e))?;
+            .map_err(|e| format!("Failed to download nvm installer: {}", e))?;
 
-        if !output.status.success() {
+        if !dl_output.status.success() {
             return Err(format!(
-                "nvm installation failed: {}",
-                String::from_utf8_lossy(&output.stderr)
+                "Failed to download nvm installer: {}",
+                String::from_utf8_lossy(&dl_output.stderr)
             ));
         }
-    }
 
-    NVM_INSTALLED.store(true, Ordering::Relaxed);
-    info!("nvm installed successfully");
-    Ok(())
+        info!("Starting NVM for Windows installer. Please follow the on-screen instructions.");
+        let installer_output = Command::new(&installer_path)
+            .arg("/SILENT")
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("Failed to run nvm installer: {}", e))?;
+
+        if !installer_output.status.success() {
+            return Err(format!(
+                "NVM installation failed: {}",
+                String::from_utf8_lossy(&installer_output.stderr)
+            ));
+        }
+
+        let _ = std::fs::remove_file(&installer_path);
+        let _ = std::fs::remove_dir(&temp_dir);
+
+        if check_nvm_installed() {
+            NVM_INSTALLED.store(true, Ordering::Relaxed);
+            info!("nvm for Windows installed successfully");
+            Ok(())
+        } else {
+            Err("nvm for Windows installation completed but verification failed".to_string())
+        }
+    }
 }
 
 fn ensure_node_environment() -> Result<String, String> {
@@ -636,76 +607,66 @@ fn ensure_node_environment() -> Result<String, String> {
     Ok("Node environment is ready".to_string())
 }
 
-// New synchronous environment setup function for config.rs to use
-pub fn ensure_environment_sync() -> Result<String, String> {
-    if is_test_mode() {
-        return Ok("Environment setup completed".to_string());
-    }
-
-    // If environment setup is already completed, return early
-    if ENVIRONMENT_SETUP_COMPLETED.load(Ordering::SeqCst) {
-        debug!("Environment setup already completed");
-        return Ok("Environment setup already completed".to_string());
-    }
-
-    info!("Starting synchronous environment setup");
-
-    // Use a mutex to prevent concurrent setup operations
-    let _lock = match ENVIRONMENT_SETUP_LOCK.try_lock() {
-        Ok(guard) => guard,
-        Err(_) => {
-            info!("Another environment setup is already in progress, waiting...");
-            // Block until lock is available for synchronous operation
-            ENVIRONMENT_SETUP_LOCK.lock().unwrap()
-        }
-    };
-
-    // Check again if setup was completed while waiting
-    if ENVIRONMENT_SETUP_COMPLETED.load(Ordering::SeqCst) {
-        return Ok("Environment setup completed while waiting".to_string());
-    }
-
-    // Ensure node environment is ready
-    ensure_node_environment()?;
-
-    info!("Synchronous environment setup completed");
-    Ok("Environment setup completed".to_string())
-}
-
 #[tauri::command]
-pub fn ensure_environment() -> Result<String, String> {
+pub async fn ensure_environment() -> Result<String, String> {
     if is_test_mode() {
         return Ok("Environment setup started".to_string());
     }
 
-    // Use a more reliable way to check if we're already setting up the environment
     if ENVIRONMENT_SETUP_STARTED.swap(true, Ordering::SeqCst) {
         info!("Environment setup already in progress, skipping");
         return Ok("Environment setup already in progress".to_string());
     }
 
-    // Use a thread-safe approach for environment setup
-    std::thread::spawn(|| {
-        // Use a mutex to prevent concurrent setup operations
+    match tauri::async_runtime::spawn_blocking(|| {
         let _lock = match ENVIRONMENT_SETUP_LOCK.try_lock() {
             Ok(guard) => guard,
             Err(_) => {
                 info!("Another environment setup is already in progress");
                 ENVIRONMENT_SETUP_STARTED.store(false, Ordering::SeqCst);
-                return;
+                return Err("Another environment setup is already in progress".to_string());
             }
         };
 
         info!("Starting environment setup");
+        let mut setup_failed = false;
 
-        // Ensure node environment is ready
         if let Err(e) = ensure_node_environment() {
             error!("Failed to ensure node environment: {}", e);
+            setup_failed = true;
         }
 
-        info!("Environment setup completed");
         ENVIRONMENT_SETUP_STARTED.store(false, Ordering::SeqCst);
-    });
 
-    Ok("Environment setup started".to_string())
+        if setup_failed {
+            ENVIRONMENT_SETUP_COMPLETED.store(false, Ordering::SeqCst);
+            Err("Environment setup failed. Please check the logs for details.".to_string())
+        } else {
+            ENVIRONMENT_SETUP_COMPLETED.store(true, Ordering::SeqCst);
+            info!("Environment setup completed successfully");
+            Ok("Environment setup completed".to_string())
+        }
+    })
+    .await
+    {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Environment setup task panicked: {}", e);
+            ENVIRONMENT_SETUP_STARTED.store(false, Ordering::SeqCst);
+            ENVIRONMENT_SETUP_COMPLETED.store(false, Ordering::SeqCst);
+            Err("Environment setup failed unexpectedly".to_string())
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn create_windowless_command(program: &str) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn create_windowless_command(program: &str) -> Command {
+    Command::new(program)
 }

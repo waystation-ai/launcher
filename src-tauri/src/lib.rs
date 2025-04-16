@@ -368,11 +368,11 @@ pub fn run() {
             .target(tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview, ))
             .target(tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: Some("logs".to_string()), }, ))
             .build())
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(any(windows, target_os = "linux"))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
-                app.deep_link().register_all()?;
+                _app.deep_link().register_all()?;
             }
             Ok(())
         })
@@ -386,6 +386,7 @@ pub fn run() {
             get_auth_data,
             logout,
             refresh_token,
+            environment::ensure_environment,
             app::install_waystation_mcp,
             app::check_claude_installed,
             app::restart_claude_app,
